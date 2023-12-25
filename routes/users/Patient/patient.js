@@ -7,76 +7,57 @@ const db = require('../../../utils/db');
 
 process.env.SECRET_KEY = 'Arijit';
 
-patient.post('/register', (req, res) => {
+patient.post('/add_patient', (req, res) => {
 
     const patientData = {
-        first_name  : req.body.first_name,
-        last_name   : req.body.last_name,
+        patient_id  : req.body.patient_id,
+        full_name   : req.body.full_name,
+        dob         : req.body.dob,
+        gender      : req.body.gender,
+        phone_number: req.body.phone_number,
         address     : req.body.address,
         email       : req.body.email,
-        phone_no    : req.body.phone_no,
-        password    : req.body.password,
-        disease     : req.body.disease
+        password    : req.body.password
     }
 
-    let find = `SELECT * FROM patient WHERE email = "${patientData.email}"`;
+    let find = `SELECT * FROM patient WHERE patient_id = "${patientData.patient_id}"`;
 
     db.query(find, (err1, result1) => {
         if(err1) console.log(err1);
         //console.log(result1[0]);
 
-        if(result1[0] == undefined) {
-            bcrypt.hash(req.body.password, 10, (err, hash) => {
-                patientData.password = hash;
-                
-                let create = `INSERT INTO patient (first_name, last_name, address, email, phone_no, password, disease)
-                              VALUES ( "${patientData.first_name}", 
-                                       "${patientData.last_name}", 
+        if(result1[0] == undefined) {  
+            let create = `INSERT INTO patient (
+                    patient_id,
+                    full_name,
+                    dob,
+                    gender,
+                    phone_number,
+                    address,
+                    email)
+                              VALUES ( "${patientData.patient_id}", 
+                                       "${patientData.full_name}",
+                                       "${patientData.dob}",
+                                       "${patientData.gender}",
+                                       "${patientData.phone_number}",
                                        "${patientData.address}",
-                                       "${patientData.email}",
-                                       "${patientData.phone_no}",
-                                       "${patientData.password}",
-                                       "${patientData.disease}")`;
+                                       "${patientData.email}")`;
+            db.query(create, (err2, result2) => {
+                if(err2) console.log(err2);
+                
+            })
 
-                db.query(create, (err2, result2) => {
+            let create_account = `INSERT INTO credentials (username, password, id) 
+                                    VALUES ("${patientData.full_name}",
+                                            "${patientData.password}",
+                                            "${patientData.patient_id}")`;
 
-                    db.query(find, (err3, result3)=> {
-                        const patient_id = result3[0].patient_id;
-
-                        let bill = `INSERT INTO bill (patient_id) VALUES ("${patient_id}")`;
-
-                        db.query(bill, (err4, result4)=>{
-                            console.log("OK");
-                        })
-                    })
-
-
-                    if(err2) console.log(err2);
-                    res.send("Created Database ooooooooooooohhhhhh");
-                })
-            });
+            db.query(create_account, (err3, result3) => {
+                if(err3) console.log(err3);
+                res.send("Created Database ooooooooooooohhhhhh");
+            })
         }else {
             res.send("user already exist...");
-        }
-    });
-});
-
-patient.post('/login', (req, res) => {
-    let find = `SELECT password, patient_id FROM patient WHERE email = "${req.body.email}"`;
-    
-    db.query(find, (err, result) => {
-        if(err) console.log(err);
-        // console.log(result);
-
-        if(result[0] != undefined) {
-            if(bcrypt.compareSync(req.body.password, result[0].password)) {
-                let token = jwt.sign(result[0].patient_id, process.env.SECRET_KEY);
-                res.send(token);
-            } else {
-                res.status(400).json({ error: 'User does not exist' })
-            }
-        } else {
-            res.send("Email not found");
         }
     });
 });
@@ -84,33 +65,32 @@ patient.post('/login', (req, res) => {
 patient.get('/profile', (req, res) => {
     let patient_id = jwt.verify(req.headers['authorization'], process.env.SECRET_KEY);
     
-    let patient = `SELECT * FROM patient WHERE patient_id = ${patient_id}`;
+    let patient = `SELECT * FROM patient WHERE patient_id = "${patient_id.patient_id}"`;
     db.query(patient, (err, result) => {
         if (err) console.log(err);
         res.send(result);
     });
 });
 
-patient.put('/update', (req, res) => {
-    // let patient_id = jwt.verify(req.headers['authorization'], process.env.SECRET_KEY);
-    let patient_id = req.body.patient_id;
+patient.put('/update_profile', (req, res) => {
+    let patient_id = jwt.verify(req.headers['authorization'], process.env.SECRET_KEY);
     const updatedData = {
-        first_name: req.body.first_name,
-        last_name: req.body.last_name,
-        address: req.body.address,
-        email: req.body.email,
-        phone_no: req.body.phone_no,
-        disease: req.body.disease
+        full_name       : req.body.full_name,
+        dob             : req.body.dob,
+        gender          : req.body.gender,
+        phone_number    : req.body.phone_number,
+        address         : req.body.address,
+        email           : req.body.email
     };
 
     let updateQuery = `UPDATE patient
-                       SET first_name = "${updatedData.first_name}",
-                           last_name = "${updatedData.last_name}",
-                           address = "${updatedData.address}",
-                           email = "${updatedData.email}",
-                           phone_no = "${updatedData.phone_no}",
-                           disease = "${updatedData.disease}"
-                       WHERE patient_id = "${patient_id}"`;
+                       SET full_name    = "${updatedData.full_name}",
+                           dob          = "${updatedData.dob}",
+                           gender       = "${updatedData.gender}",
+                           phone_number = "${updatedData.phone_number}",
+                           address      = "${updatedData.address}",
+                           email        = "${updatedData.email}"
+                       WHERE patient_id = "${patient_id.patient_id}"`;
 
     db.query(updateQuery, (err, result) => {
         if (err) {
@@ -120,26 +100,18 @@ patient.put('/update', (req, res) => {
             res.json({ success: true, message: 'Patient information updated successfully' });
         }
     });
-
-      
-
-
-
 });
 
-patient.get('/details', (req, res) => {
+patient.get('/history', (req, res) => {
     let patient_id = jwt.verify(req.headers['authorization'], process.env.SECRET_KEY);
 
-    let patient =  `SELECT 
-                        *                        
-                    FROM patient
-                    WHERE patient_id = ${patient_id}`;
-    db.query(patient, (err, result) => {
+    let get_medic_reports = `SELECT * FROM medical_reports WHERE patient_id = "${patient_id.patient_id}"`
+
+    db.query(get_medic_reports, (err, result) => {
         if (err) console.log(err);
-        // console.log(patient_id, result);
         res.send(result);
     });
-});
+})
 
 patient.get('/doctor', (req, res) => {
     let patient_id = jwt.verify(req.headers['authorization'], process.env.SECRET_KEY);
@@ -160,6 +132,23 @@ patient.get('/doctor', (req, res) => {
         res.send(result);
     });
 })
+
+patient.get('/history', (req, res) => {
+    let patient_id = jwt.verify(req.headers['authorization'], process.env.SECRET_KEY);
+
+    let get_medic_reports = `SELECT * FROM medical_report WHERE patient_id = "${patient_id.patient_id}"`
+
+    db.query(get_medic_reports, (err, result) => {
+        if (err) console.log(err);
+        res.send(result);
+    });
+})
+
+// patient.post('/make_appointment', (req, res) => {
+//     let patient_id = jwt.verify(req.headers['authorization'], process.env.SECRET_KEY);
+
+//     let add_appointment = `INSERT INTO `
+// })
 
 patient.get('/bill', (req, res) => {
     let patient_id = jwt.verify(req.headers['authorization'], process.env.SECRET_KEY);
